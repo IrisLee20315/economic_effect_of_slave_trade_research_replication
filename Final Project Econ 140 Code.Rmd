@@ -1,0 +1,154 @@
+---
+title: "ECON 140 Final Project: The Long-Term Effects of Africa’s Slave Trades Replication
+  Project"
+author: "Clement, Iris, Andrew and David"
+date: "2024-04-30"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+## Setup Packages
+```{r}
+#install.packages("haven")
+#install.packages("ggplot2")
+#install.packages("AER")
+#install.packages("ivreg")
+library(haven)
+library(ggplot2)
+library(AER)
+library(ivreg)
+```
+
+## Import DataSet/Data Processing
+```{r}
+slave_data <- read.csv("slave_trade_QJE.csv")
+s_data <- read.csv("slave_trade_QJE.csv")
+
+#Remove the North African Countries and Islands
+remove <- c("Comoros" , "Cape Verde Islands", "Algeria", "Egypt", "Libya", "Morocco", "Mauritius", "Sao Tome & Principe", "Seychelles", "Tunisia")
+r_data <- s_data[!grepl(paste(remove, collapse = '|'), s_data$country),]
+
+```
+
+## Figure 3
+```{r}
+slave_data <- read.csv("slave_trade_QJE.csv")
+ggplot(slave_data, aes(x=ln_export_area, y=ln_maddison_pcgdp2000, label = isocode)) + 
+  geom_text() +
+  expand_limits(x=c(-4,11), y = c(4.5,10)) + 
+  labs(x= "ln(exports/area)", y ="Log real per capita GDP in 2000, ln y") +
+  geom_smooth(method = lm, se = FALSE) 
+```
+
+## Table 3
+```{r}
+# Colonizer fixed effects in original table means including all colony estimators
+ols1 = lm(ln_maddison_pcgdp2000 ~ ln_export_area + colony1 + colony2 + colony3 + colony4 + colony5 + colony6 + colony7, data = slave_data)
+
+ols2 = lm(ln_maddison_pcgdp2000 ~ ln_export_area + abs_latitude + longitude + rain_min +humid_max + low_temp + ln_coastline_area + colony1 + colony2 + colony3 + colony4 + colony5 + colony6 + colony7, data = slave_data)
+
+ols4 = lm(ln_maddison_pcgdp2000 ~ ln_export_area + abs_latitude + longitude + rain_min +humid_max + low_temp + ln_coastline_area + island_dum + islam + legor_fr + region_n  + colony1 + colony2 + colony3 + colony4 + colony5 + colony6 + colony7, data = slave_data)
+
+columns_to_drop = c("Morocco", "Algeria", "Tunisia", "Libya", "Egypt", "Seychelles", "Mauritius", "Comoros", "Sao Tome & Principe", "Cape Verde Islands")
+condition <- !(slave_data[["country"]] %in% columns_to_drop)
+no_north_africa = slave_data[condition, ]
+
+
+
+ols6 = lm(ln_maddison_pcgdp2000 ~ ln_export_area + abs_latitude + longitude + rain_min +humid_max + low_temp + ln_coastline_area + islam + legor_fr + ln_avg_gold_pop + ln_avg_oil_pop + ln_avg_all_diamonds_pop + colony1 + colony2 + colony3 + colony4 + colony5 + colony6 + colony7, data = no_north_africa)
+
+summary(ols1)
+summary(ols2)
+summary(ols4)
+summary(ols6)
+```
+
+## Figure 4
+```{r}
+ggplot(slave_data, aes(x = ln_pop_dens_1400, y=ln_export_area, label = isocode)) +
+  geom_text() +
+  labs(x = "log population density in 1400", y = "Slave Exports, ln(exports/area)") + 
+  expand_limits(x=c(-2.5, 3.5), y=c(-2,10)) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", size = 0.5)
+```
+
+
+## Table 4
+```{r}
+# First Stage Model: Dependent Variable is ln(exports/area)
+first_model <- lm(ln_export_area ~ atlantic_distance_minimum + indian_distance_minimum + saharan_distance_minimum
+                  + red_sea_distance_minimum, data = s_data )
+summary(object = first_model)
+
+second_model <- lm(ln_export_area ~ atlantic_distance_minimum + indian_distance_minimum + saharan_distance_minimum
+                   + red_sea_distance_minimum + colony0+ colony1 + colony2 + colony3+ colony4+ colony5+ colony6+colony7, data=s_data)
+summary(object = second_model)
+
+
+third_column_model <- lm(ln_export_area ~ atlantic_distance_minimum + indian_distance_minimum + saharan_distance_minimum
+                         + red_sea_distance_minimum + colony0+ colony1 + colony2 + colony3+ colony4+ colony5+ colony6+colony7
+                         +abs_latitude+longitude+rain_min+humid_max+low_temp + ln_coastline_area, data=s_data )
+summary(object = third_column_model)
+
+
+fourth_column_model <- lm(ln_export_area ~ atlantic_distance_minimum + indian_distance_minimum + saharan_distance_minimum
+                          + red_sea_distance_minimum + colony0+ colony1 + colony2 + colony3+ colony4+ colony5+ colony6+colony7+abs_latitude+longitude+rain_min+humid_max+low_temp + ln_coastline_area, data=r_data )
+
+summary(object = fourth_column_model)
+
+# Second Stage Model: Dependent Variable is log(income in 2000)
+first_iv_model <-ivreg(ln_maddison_pcgdp2000 ~  ln_export_area|atlantic_distance_minimum + indian_distance_minimum + saharan_distance_minimum + red_sea_distance_minimum, data = s_data)
+summary(first_iv_model, diagnostics = TRUE)
+
+second_iv_model <- ivreg(ln_maddison_pcgdp2000 ~ ln_export_area + colony0+ colony1 + colony2 + colony3+ colony4+ colony5+ colony6+colony7 | atlantic_distance_minimum + indian_distance_minimum + saharan_distance_minimum + red_sea_distance_minimum + colony0+ colony1 + colony2 + colony3+ colony4+ colony5+ colony6+colony7,data=s_data  )
+summary(object = second_iv_model, diagnostics = TRUE)
+
+third_iv_model <- ivreg(ln_maddison_pcgdp2000 ~  ln_export_area + colony0+ colony1 + colony2 + colony3+ colony4+ colony5+ colony6+colony7
+                        +abs_latitude+longitude+rain_min+humid_max+low_temp + ln_coastline_area |atlantic_distance_minimum + indian_distance_minimum + saharan_distance_minimum
+                        + red_sea_distance_minimum + colony0+ colony1 + colony2 + colony3+ colony4+ colony5+ colony6+colony7
+                        +abs_latitude+longitude+rain_min+humid_max+low_temp + ln_coastline_area, data=s_data )
+summary(object = third_iv_model, diagnostics = TRUE)
+
+# Make Replicated Tables 
+a <- round(c(summary(object = first_model)$coefficients[2], summary(object = second_model)$coefficient[2], summary(object = third_column_model, test = "F")$coefficient[2],summary(object = fourth_column_model, test = "F")$coefficient[2]), digits = 3)
+b <- round(c(summary(object = first_model)$coefficients[3], summary(object = second_model)$coefficient[3], summary(object = third_column_model, test = "F")$coefficient[3],summary(object = fourth_column_model, test = "F")$coefficient[3]), digits = 3)
+c <- round(c(summary(object = first_model)$coefficients[4], summary(object = second_model)$coefficient[4], summary(object = third_column_model, test = "F")$coefficient[4],summary(object = fourth_column_model, test = "F")$coefficient[4]), digits = 3)
+d <- round(c(summary(object = first_model)$coefficients[5], summary(object = second_model)$coefficient[5], summary(object = third_column_model, test = "F")$coefficient[5],summary(object = fourth_column_model, test = "F")$coefficient[5]), digits = 3)
+f <- round(c(summary(object = first_model)$fstatistic[1], summary(object = second_model)$fstatistic[1], summary(object = third_column_model)$fstatistic[1], summary(object = fourth_column_model)$fstatistic[1] ), digits = 3)
+
+addparentheses <- function(x){paste("(", x, ")")}
+ae <- addparentheses(round(c(summary(object = first_model)$coefficients[2,2], summary(object = second_model)$coefficient[2,2], summary(object = third_column_model, test = "F")$coefficient[2,2],summary(object = fourth_column_model, test = "F")$coefficient[2,2]), digits = 3))
+be <- addparentheses(round(c(summary(object = first_model)$coefficients[3,2], summary(object = second_model)$coefficient[3,2], summary(object = third_column_model, test = "F")$coefficient[3,2],summary(object = fourth_column_model, test = "F")$coefficient[3,2]), digits = 3))
+ce <- addparentheses(round(c(summary(object = first_model)$coefficients[4,2], summary(object = second_model)$coefficient[4,2], summary(object = third_column_model, test = "F")$coefficient[4,2],summary(object = fourth_column_model, test = "F")$coefficient[4,2]), digits = 3))
+de <- addparentheses(round(c(summary(object = first_model)$coefficients[5,2], summary(object = second_model)$coefficient[5,2], summary(object = third_column_model, test = "F")$coefficient[5,2],summary(object = fourth_column_model, test = "F")$coefficient[5,2]), digits = 3))
+
+summary(object = first_model)$coefficients[3,2]
+first_stage_table <- rbind(a,ae,b,be,c,ce,d, de,f)
+colnames(first_stage_table) = c("(1) None", "(2) colonizer","(3) colonizer + geographical ","(4) colonizer + geographical + restricted")
+rownames(first_stage_table) = c("Atlantic Distance", "SE_A", "Indian Distance","SE_I", "Saharan Distance","SE_S", "Red Sea Distance","SE_R", "F-Stat")
+
+l <- round(c(summary(first_iv_model)$coefficient[2], summary(object = second_iv_model)$coefficient[2],summary(object = third_iv_model)$coefficient[2] ), digits = 3)
+le <- addparentheses(round(c(summary(first_iv_model)$coefficient[2,2], summary(object = second_iv_model)$coefficient[2,2], summary(object = third_iv_model)$coefficient[2,2] ), digits = 3))
+lf <- round(c(summary(first_iv_model)$wald[1],summary(object = second_iv_model)$wald[1],summary(object = third_iv_model)$wald[1]), digits = 3)
+lh <- round(c(summary(first_iv_model, diagnostics = TRUE)$diagnostics[2,4], summary(second_iv_model, diagnostics = TRUE)$diagnostics[2,4], summary(third_iv_model, diagnostics = TRUE)$diagnostics[2,4]), digits = 3)
+ls <-round(c(summary(first_iv_model, diagnostics = TRUE)$diagnostics[3,4], summary(second_iv_model, diagnostics = TRUE)$diagnostics[3,4], summary(third_iv_model, diagnostics = TRUE)$diagnostics[3,4]), digits = 3)
+ls
+
+second_stage_table <- rbind (l,le,lf,lh,ls)
+colnames(second_stage_table) = c("(1) None", "(2) Colonizer ","(3) colonizer + geographical")
+rownames(second_stage_table) = c("ln(exports/area)", "SE", "F-Stat", "Hausman Test (p-val)", "Sargan Test (p-val)")
+
+first_stage_table
+second_stage_table
+```
+
+## Figure 6
+```{r}
+ggplot(slave_data, aes(x=ln_export_area, y=ethnic_fractionalization, label = isocode)) +
+  geom_text() + 
+  labs(x = "ln(exports/area)", y = "Ethnic Fractionalization") +
+  expand_limits(x=c(-4,11), y=c(-0.1, 1.1)) +
+  geom_smooth(method=lm, se=FALSE, colour="black", size=0.5)
+
+```
